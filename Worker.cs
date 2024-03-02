@@ -18,7 +18,11 @@ namespace System_Monitor_MQTT
             List<string> hwFilters = new List<string> { };
             IList<IHardware> hardware = HWMService.Monitor();
             var mqttFactory = new MqttFactory();
-            var mqttServerOptions = new MqttServerOptionsBuilder().WithDefaultEndpoint().Build();
+            var mqttServerOptions = new MqttServerOptionsBuilder()
+                //.WithDefaultEndpointBoundIPAddress(System.Net.IPAddress.Any)
+                //.WithDefaultEndpointPort(1883)    
+                .WithDefaultEndpoint()
+                .Build();
             
             try
             {
@@ -27,7 +31,8 @@ namespace System_Monitor_MQTT
                     bool setupWLED = false;
                     mqttServer.ClientConnectedAsync += async e =>
                     {
-                        //Console.WriteLine("Client connected: {0}", e.ClientId);
+
+                        Console.WriteLine("Client connected: {0}", e.ClientId);
                         if(e.ClientId.Contains("WLED"))
                         {
                             wledClients.Add(e.ClientId);
@@ -44,7 +49,7 @@ namespace System_Monitor_MQTT
 
                             foreach (string filter in filters)
                             {
-                                //Console.WriteLine("Adding filter: {0}", filter);
+                                Console.WriteLine("Adding filter: {0}", filter);
                                 hwFilters.Add(filter);
                             }
 
