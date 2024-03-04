@@ -28,7 +28,6 @@ namespace System_Monitor_MQTT
             {
                 using (var mqttServer = mqttFactory.CreateMqttServer(mqttServerOptions))
                 {
-                    bool setupWLED = false;
                     mqttServer.ClientConnectedAsync += async e =>
                     {
 
@@ -36,7 +35,6 @@ namespace System_Monitor_MQTT
                         if(e.ClientId.Contains("WLED"))
                         {
                             wledClients.Add(e.ClientId);
-                            setupWLED = true;
                         }
                         if (e.ClientId.Contains("monitor"))
                         {
