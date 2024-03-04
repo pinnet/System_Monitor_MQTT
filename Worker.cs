@@ -10,8 +10,8 @@ namespace System_Monitor_MQTT
     public sealed class WindowsBackgroundService(HWmonitorService HWMService,ILogger<WindowsBackgroundService> logger) : BackgroundService
     {
         int currentCpuSpeed = 0;
-        List<string> wledClients = new List<string>();
-        List<string> monitorClients = new List<string>();
+        List<IClient> wledClients = new List<IClient>();
+        List<IClient> monitorClients = new List<IClient>();
         MessageCache messageCache = new MessageCache();
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
@@ -19,8 +19,7 @@ namespace System_Monitor_MQTT
             IList<IHardware> hardware = HWMService.Monitor();
             var mqttFactory = new MqttFactory();
             var mqttServerOptions = new MqttServerOptionsBuilder()
-                //.WithDefaultEndpointBoundIPAddress(System.Net.IPAddress.Any)
-                //.WithDefaultEndpointPort(1883)    
+                .WithDefaultEndpointPort(1882)
                 .WithDefaultEndpoint()
                 .Build();
             
@@ -34,23 +33,11 @@ namespace System_Monitor_MQTT
                         Console.WriteLine("Client connected: {0}", e.ClientId);
                         if(e.ClientId.Contains("WLED"))
                         {
-                            wledClients.Add(e.ClientId);
+                            wledClients.Add(new Wled(e.ClientId));
                         }
                         if (e.ClientId.Contains("monitor"))
                         {
-                            monitorClients.Add(e.ClientId);
-                            string id = e.ClientId.Remove(0,e.ClientId.IndexOf("{") + 1);
-                            id = id.Remove(id.IndexOf("}"),1);
-                            id = id.ToUpper();
-
-                            string[] filters = id.Split(',');
-
-                            foreach (string filter in filters)
-                            {
-                                Console.WriteLine("Adding filter: {0}", filter);
-                                hwFilters.Add(filter);
-                            }
-
+                            monitorClients.Add(new Monitor(e.ClientId));
                         }
                         messageCache.ClearMessages();
                         await Task.CompletedTask;
@@ -58,16 +45,7 @@ namespace System_Monitor_MQTT
 
                     mqttServer.ClientDisconnectedAsync += async e =>
                     {
-                        Console.WriteLine("Client disconnected: {0}", e.ClientId);
-                        if (e.ClientId.Contains("WLED"))
-                        {
-                            wledClients.Remove(e.ClientId);
-                        }
-                        if (e.ClientId.Contains("monitor"))
-                        {
-                            monitorClients.Remove(e.ClientId);
-                            hwFilters.Clear();
-                        }
+                 
                         await Task.CompletedTask;
                     };
 
