@@ -15,8 +15,9 @@ namespace System_Monitor_MQTT
         MessageCache messageCache = new MessageCache();
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            List<string> hwFilters = new List<string> { };
+            List<string> hwFilters = new List<string>() { };
             IList<IHardware> hardware = HWMService.Monitor();
+           
             var mqttFactory = new MqttFactory();
             var mqttServerOptions = new MqttServerOptionsBuilder()
                 .WithDefaultEndpointPort(1882)
@@ -27,6 +28,21 @@ namespace System_Monitor_MQTT
             {
                 using (var mqttServer = mqttFactory.CreateMqttServer(mqttServerOptions))
                 {
+                    mqttServer.ValidatingConnectionAsync += e =>
+                    {
+                        if (e.UserName != "SystemUser")
+                        {
+                            e.ReasonCode = MqttConnectReasonCode.BadUserNameOrPassword;
+                        }
+
+                        if (e.Password != "12345678")
+                        {
+                            e.ReasonCode = MqttConnectReasonCode.BadUserNameOrPassword;
+                        }
+
+                        return Task.CompletedTask;
+                    };
+
                     mqttServer.ClientConnectedAsync += async e =>
                     {
 
@@ -49,19 +65,20 @@ namespace System_Monitor_MQTT
                         await Task.CompletedTask;
                     };
 
-                    mqttServer.ValidatingConnectionAsync += e =>
+                    mqttServer.ClientSubscribedTopicAsync += async e =>
                     {
-                        if (e.UserName != "SystemUser")
-                        {
-                            e.ReasonCode = MqttConnectReasonCode.BadUserNameOrPassword;
-                        }
 
-                        if (e.Password != "12345678")
-                        {
-                            e.ReasonCode = MqttConnectReasonCode.BadUserNameOrPassword;
-                        }
+                        string id = e.ClientId;
 
-                        return Task.CompletedTask;
+                        Console.WriteLine("  Client '{0}' subscribed to topic '{1}'", id, e.TopicFilter.Topic);
+                        
+                        string rootTpoic = e.TopicFilter.Topic.Split('/')[0];
+
+                        hwFilters.Add(rootTpoic);
+
+                        //await publishAsync(mqttServer, e.TopicFilter.Topic,"['I9 14900k','intel GPU']");
+                        
+                        await Task.CompletedTask;
                     };
 
                     await mqttServer.StartAsync();
@@ -127,13 +144,7 @@ namespace System_Monitor_MQTT
             }
 
         }
-        private async void publishWLEDSetup(MqttServer mqttServer)
-        { 
-            await publishCachedAsync(mqttServer, "wled/all/api", "FX=8");
-            await publishCachedAsync(mqttServer, "wled/all/api", "SX=0");
-            await publishCachedAsync(mqttServer, "wled/all/col", "#FFFFFF");
-        }
-
+        
         private async void publishHWInfo(IList<IHardware> hardware, MqttServer mqttServer, List<string> filters)
         {
             
@@ -146,56 +157,56 @@ namespace System_Monitor_MQTT
                     case HardwareType.Cpu:
                         if (filters.Contains("CPU"))
                         {
-                            topic = "CPU/" + hardware[i].Name;
+                            topic = new Topic("CPU").AppendSubTopic(hardware[i].Name,i);
                             await publishCachedAsync(mqttServer, topic);
                         }
                         break;
                     case HardwareType.Motherboard:
                         if (filters.Contains("MOTHERBOARD"))
                         {
-                            topic = "Motherboard/" + hardware[i].Name;
+                            topic = new Topic("MOTHERBOARD").AppendSubTopic(hardware[i].Name,i);
                             await publishCachedAsync(mqttServer, topic);
                         }
                         break;
                     case HardwareType.GpuIntel:
                         if (filters.Contains("GPU"))
                         {
-                            topic = "GPU/Intel/" + hardware[i].Name;
+                            topic = new Topic("GPU/Intel").AppendSubTopic(hardware[i].Name,i);
                             await publishCachedAsync(mqttServer, topic);
                         }
                         break;
                     case HardwareType.GpuNvidia:
                         if (filters.Contains("GPU"))
                         {
-                            topic = "GPU/Nvidia/" + hardware[i].Name;
+                            topic = new Topic ("GPU/Nvidia").AppendSubTopic(hardware[i].Name,i);
                             await publishCachedAsync(mqttServer, topic);
                         }
                         break;
                     case HardwareType.GpuAmd:
                         if (filters.Contains("GPU"))
                         {
-                            topic = "GPU/AMD/" + hardware[i].Name;
+                            topic =new Topic("GPU/AMD").AppendSubTopic(hardware[i].Name,i);
                             await publishCachedAsync(mqttServer, topic);
                         }
                         break;
                     case HardwareType.Storage:
                         if (filters.Contains("STORAGE"))
                         {
-                            topic = "Storage/" + hardware[i].Name;
+                            topic = new Topic("STORAGE").AppendSubTopic(hardware[i].Name,i);
                             await publishCachedAsync(mqttServer, topic);
                         }
                         break;
                     case HardwareType.Network:
                         if (filters.Contains("NETWORK"))
                         {
-                            topic = "Network/" + hardware[i].Name;
+                            topic = new Topic("NETWORK").AppendSubTopic(hardware[i].Name,i);
                             await publishCachedAsync(mqttServer, topic);
                         }
                         break;
                     case HardwareType.Memory:
                         if (filters.Contains("MEMORY"))
                         {
-                            topic = "Memory/" + hardware[i].Name;
+                            topic = new Topic("MEMORY").AppendSubTopic(hardware[i].Name,i);
                             await publishCachedAsync(mqttServer, topic);
                         }
                         break;
@@ -209,7 +220,8 @@ namespace System_Monitor_MQTT
                     for (int j = 0; j < hardware[i].Sensors.Length; j++)
                     {
                         string? value = hardware[i].Sensors[j].Value.ToString();
-                        string subtopic = topic + "/" + hardware[i].Sensors[j].Name.Replace('/', '-');
+                        string subName = hardware[i].Sensors[j].Name.Replace('/', '-');
+                        string subtopic = topic + "/" + subName;
                         await publishCachedAsync(mqttServer, subtopic, value != null ? value : "");
                     }
                 }
@@ -219,6 +231,8 @@ namespace System_Monitor_MQTT
                     for (int k = 0; k < hardware[i].SubHardware.Length; k++)
                     {
                         string subtopic = topic + "/" + hardware[i].SubHardware[k].Name.Replace('/', '-');
+
+
                         hardware[i].SubHardware[k].Update();
                         await publishCachedAsync(mqttServer, subtopic);
                         for (int l = 0; l < hardware[i].SubHardware[k].Sensors.Length; l++)
