@@ -10,6 +10,8 @@ namespace System_Monitor_MQTT
     public sealed class WindowsBackgroundService(HWmonitorService HWMService,ILogger<WindowsBackgroundService> logger) : BackgroundService
     {
         int currentCpuSpeed = 0;
+        double updateInterval = 1000;
+
         Dictionary<string, List<string>> clients = new Dictionary<string, List<string>>();
         MessageCache messageCache = new MessageCache();
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -45,7 +47,8 @@ namespace System_Monitor_MQTT
                     {
 
                         Console.WriteLine("Client connected: {0}", e.ClientId);
-                        clients.Add(e.ClientId, new List<string>());
+                        List<string> clientFilter = new List<string>();
+                        clients.Add(e.ClientId, clientFilter);
                         messageCache.ClearMessages();
                         await Task.CompletedTask;
                     };
@@ -85,7 +88,7 @@ namespace System_Monitor_MQTT
                             }
                             publishHWInfo(hardware, mqttServer, hwfilters);
                         }
-                        await Task.Delay(TimeSpan.FromSeconds(1), stoppingToken);
+                        await Task.Delay(TimeSpan.FromMilliseconds(updateInterval), stoppingToken);
                     }
                     HWMService.CloseComputer();
                     await mqttServer.StopAsync();
@@ -142,7 +145,7 @@ namespace System_Monitor_MQTT
         }
         private async void publishHWInfo(IList<IHardware> hardware, MqttServer mqttServer, List<string> filters)
         {
-            
+            await publishAsync(mqttServer, "SYSINFO","wtf");
             for (int i = 0; i < hardware.Count; i++)
             {
                 string topic = "";
