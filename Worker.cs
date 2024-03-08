@@ -10,12 +10,10 @@ namespace System_Monitor_MQTT
     public sealed class WindowsBackgroundService(HWmonitorService HWMService,ILogger<WindowsBackgroundService> logger) : BackgroundService
     {
         int currentCpuSpeed = 0;
-        List<IClient> wledClients = new List<IClient>();
-        List<IClient> monitorClients = new List<IClient>();
+        Dictionary<string, List<string>> clients = new Dictionary<string, List<string>>();
         MessageCache messageCache = new MessageCache();
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            List<string> hwFilters = new List<string>() { };
             IList<IHardware> hardware = HWMService.Monitor();
            
             var mqttFactory = new MqttFactory();
@@ -47,36 +45,29 @@ namespace System_Monitor_MQTT
                     {
 
                         Console.WriteLine("Client connected: {0}", e.ClientId);
-                        if(e.ClientId.Contains("WLED"))
-                        {
-                            wledClients.Add(new Wled(e.ClientId));
-                        }
-                        if (e.ClientId.Contains("monitor"))
-                        {
-                            monitorClients.Add(new Monitor(e.ClientId));
-                        }
+                        clients.Add(e.ClientId, new List<string>());
                         messageCache.ClearMessages();
                         await Task.CompletedTask;
                     };
 
                     mqttServer.ClientDisconnectedAsync += async e =>
                     {
-                 
+                        clients.Remove(e.ClientId);
                         await Task.CompletedTask;
                     };
 
                     mqttServer.ClientSubscribedTopicAsync += async e =>
                     {
-
+                       
                         string id = e.ClientId;
-
                         Console.WriteLine("  Client '{0}' subscribed to topic '{1}'", id, e.TopicFilter.Topic);
-                        
                         string rootTpoic = e.TopicFilter.Topic.Split('/')[0];
 
-                        hwFilters.Add(rootTpoic);
-
-                        //await publishAsync(mqttServer, e.TopicFilter.Topic,"['I9 14900k','intel GPU']");
+                        if (clients.ContainsKey(id))
+                        { 
+                            List<string> filters = clients[id];
+                            filters.Add(rootTpoic);                        
+                        }
                         
                         await Task.CompletedTask;
                     };
@@ -85,35 +76,14 @@ namespace System_Monitor_MQTT
                     
                     while (!stoppingToken.IsCancellationRequested)
                     {
-                        if (monitorClients.Count > 0)
+                        if (clients.Count > 0)
                         {
-                            publishHWInfo(hardware, mqttServer, hwFilters);
-                        }
-
-                        if (wledClients.Count > 0)
-                        {
-                            foreach (IHardware hw in hardware)
+                            List<string> hwfilters = new List<string>();
+                            foreach (KeyValuePair<string, List<string>> client in clients)
                             {
-                                if (hw.HardwareType == HardwareType.Cpu)
-                                {
-                                    foreach (ISensor sensor in hw.Sensors)
-                                    {
-                                        if (sensor.Name.Contains("CPU Total"))
-                                        {
-                                            hw.Update();
-                                            string? val = sensor.Value.ToString();
-                                            if (val == null) return;
-                                            int speed = (int)(float.Parse(val) * 2.55);
-                                          
-                                            if (speed > currentCpuSpeed + 5 || speed < currentCpuSpeed - 5)
-                                            {
-                                                currentCpuSpeed = speed;
-                                                await publishAsync(mqttServer, "wled/all/api", "SX=" + currentCpuSpeed.ToString());
-                                            }
-                                        }
-                                    }
-                                }
+                                hwfilters.AddRange(client.Value);
                             }
+                            publishHWInfo(hardware, mqttServer, hwfilters);
                         }
                         await Task.Delay(TimeSpan.FromSeconds(1), stoppingToken);
                     }
@@ -144,7 +114,32 @@ namespace System_Monitor_MQTT
             }
 
         }
-        
+        private async void wledPublish(IList<IHardware> hardware,MqttServer server, string topic)
+        {
+            
+            foreach (IHardware hw in hardware)
+            {
+                if (hw.HardwareType == HardwareType.Cpu)
+                {
+                    foreach (ISensor sensor in hw.Sensors)
+                    {
+                        if (sensor.Name.Contains("CPU Total"))
+                        {
+                            hw.Update();
+                            string? val = sensor.Value.ToString();
+                            if (val == null) return;
+                            int speed = (int)(float.Parse(val) * 2.55);
+
+                            if (speed > currentCpuSpeed + 5 || speed < currentCpuSpeed - 5)
+                            {
+                                currentCpuSpeed = speed;
+                                await publishAsync(server, "wled/all/api", "SX=" + currentCpuSpeed.ToString());
+                            }
+                        }
+                    }
+                }
+            }
+        }
         private async void publishHWInfo(IList<IHardware> hardware, MqttServer mqttServer, List<string> filters)
         {
             
