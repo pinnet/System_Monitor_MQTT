@@ -55,6 +55,7 @@ namespace System_Monitor_MQTT
 
                     mqttServer.ClientDisconnectedAsync += async e =>
                     {
+                        Console.WriteLine("Client disconnected: {0}", e.ClientId);
                         clients.Remove(e.ClientId);
                         await Task.CompletedTask;
                     };
@@ -117,32 +118,7 @@ namespace System_Monitor_MQTT
             }
 
         }
-        private async void wledPublish(IList<IHardware> hardware,MqttServer server, string topic)
-        {
-            
-            foreach (IHardware hw in hardware)
-            {
-                if (hw.HardwareType == HardwareType.Cpu)
-                {
-                    foreach (ISensor sensor in hw.Sensors)
-                    {
-                        if (sensor.Name.Contains("CPU Total"))
-                        {
-                            hw.Update();
-                            string? val = sensor.Value.ToString();
-                            if (val == null) return;
-                            int speed = (int)(float.Parse(val) * 2.55);
-
-                            if (speed > currentCpuSpeed + 5 || speed < currentCpuSpeed - 5)
-                            {
-                                currentCpuSpeed = speed;
-                                await publishAsync(server, "wled/all/api", "SX=" + currentCpuSpeed.ToString());
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        
         private async void publishHWInfo(IList<IHardware> hardware, MqttServer mqttServer, List<string> filters)
         {
             await publishAsync(mqttServer, "SYSINFO","wtf");
