@@ -2,8 +2,6 @@ using LibreHardwareMonitor.Hardware;
 using MQTTnet;
 using MQTTnet.Protocol;
 using MQTTnet.Server;
-using System.Data.SqlTypes;
-using System.Runtime.CompilerServices;
 
 namespace System_Monitor_MQTT
 {
@@ -11,6 +9,11 @@ namespace System_Monitor_MQTT
     {
         int currentCpuSpeed = 0;
         double updateInterval = 1000;
+#if DEBUG
+        int port = 1882;
+#else
+        int port = 1883;
+#endif
 
         Dictionary<string, List<string>> clients = new Dictionary<string, List<string>>();
         MessageCache messageCache = new MessageCache();
@@ -20,7 +23,7 @@ namespace System_Monitor_MQTT
            
             var mqttFactory = new MqttFactory();
             var mqttServerOptions = new MqttServerOptionsBuilder()
-                .WithDefaultEndpointPort(1882)
+                .WithDefaultEndpointPort(port)
                 .WithDefaultEndpoint()
                 .Build();
             
