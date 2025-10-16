@@ -6,67 +6,68 @@ using System.Threading.Tasks;
 
 namespace System_Monitor_MQTT
 {
-    public class ClientHWFilters : List<string>
+    public class ClientHWFilters
     {
+        private readonly List<string> _filters = new List<string>();
         public bool isModified { get; private set; }
 
-        public new void Add(string filter)
+        public void Add(string filter)
         {
-            if (this.Contains(filter)) return;
-            base.Add(filter);
+            if (_filters.Contains(filter)) return;
+            _filters.Add(filter);
             isModified = true;
         }
 
-        public new void Remove(string filter)
+        public void Remove(string filter)
         {
-            if (!this.Contains(filter)) return;
-            base.Remove(filter);
+            if (!_filters.Contains(filter)) return;
+            _filters.Remove(filter);
             isModified = true;
         }
 
-        public new void Clear()
+        public void Clear()
         {
-            if (this.Count == 0) return;
-            base.Clear();
+            if (_filters.Count == 0) return;
+            _filters.Clear();
             isModified = true;
         }
 
-        public new void Insert(int index, string filter)
+        public void Insert(int index, string filter)
         {
-            if (this.Contains(filter)) return;
-            base.Insert(index, filter);
+            if (_filters.Contains(filter)) return;
+            _filters.Insert(index, filter);
             isModified = true;
         }
 
-        public new void RemoveAt(int index)
+        public void RemoveAt(int index)
         {
-            if (index < 0 || index >= this.Count) return;
-            base.RemoveAt(index);
+            if (index < 0 || index >= _filters.Count) return;
+            _filters.RemoveAt(index);
             isModified = true;
         }
 
-        public new void RemoveAll(Predicate<string> match)
+        public void RemoveAll(Predicate<string> match)
         {
-            base.RemoveAll(match);
+            _filters.RemoveAll(match);
             isModified = true;
         }
 
-        public new void RemoveRange(int index, int count)
+        public void RemoveRange(int index, int count)
         {
-            base.RemoveRange(index, count);
+            _filters.RemoveRange(index, count);
             isModified = true;
         }
 
-        public new void Reverse()
+        public void Reverse()
         {
-            base.Reverse();
+            _filters.Reverse();
             isModified = true;
         }
         
         public IEnumerable<string> GetFilters()
         {
             isModified = false;
-            return this;
+            return _filters.AsReadOnly();
         }
 
     }
