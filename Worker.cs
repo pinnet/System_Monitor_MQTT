@@ -254,7 +254,7 @@ namespace System_Monitor_MQTT
                     case HardwareType.GpuAmd:
                         if (filters.Contains("GPU"))
                         {
-                            topic =new Topic("GPU/AMD").AppendSubTopic(hardware[i].Name,i);
+                            topic = new Topic("GPU/AMD").AppendSubTopic(hardware[i].Name,i);
                             await publishCachedAsync(mqttServer, topic);
                         }
                         break;
