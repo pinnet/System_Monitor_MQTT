@@ -117,7 +117,7 @@ namespace System_Monitor_MQTT
                         
                         if (e.SessionItems["IsAdmin"] != null)
                         {
-                            isAdmin = (e.SessionItems["IsAdmin"]?.ToString() == "true") ? true : false ;
+                            isAdmin = e.SessionItems["IsAdmin"]?.ToString() == "true";
                         }
                         clients.Add(new Client(e.ClientId, isAdmin));
                         
