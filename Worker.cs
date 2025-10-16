@@ -1,26 +1,30 @@
+using System;
 using LibreHardwareMonitor.Hardware;
 using MQTTnet;
 using MQTTnet.Protocol;
 using MQTTnet.Server;
+using System.Configuration;
 
 namespace System_Monitor_MQTT
 {
     public sealed class WindowsBackgroundService(HWmonitorService HWMService,ILogger<WindowsBackgroundService> logger) : BackgroundService
     {
-        int currentCpuSpeed = 0;
-        double updateInterval = 1000;
+        double updateInterval = Convert.ToDouble(Settings.UpdateInterval);
+        
+
 #if DEBUG
-        int port = 1882;
-#else
         int port = 1883;
+#else
+        int port = Convert.ToInt16(Settings.Port);
 #endif
 
-        Dictionary<string, List<string>> clients = new Dictionary<string, List<string>>();
+
+        List<Client> clients = new List<Client>();
         MessageCache messageCache = new MessageCache();
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             IList<IHardware> hardware = HWMService.Monitor();
-           
+            clients.Add(new Client(Settings.ServerName, true));
             var mqttFactory = new MqttFactory();
             var mqttServerOptions = new MqttServerOptionsBuilder()
                 .WithDefaultEndpointPort(port)
@@ -31,27 +35,92 @@ namespace System_Monitor_MQTT
             {
                 using (var mqttServer = mqttFactory.CreateMqttServer(mqttServerOptions))
                 {
-                    mqttServer.ValidatingConnectionAsync += e =>
+                    
+                    mqttServer.InterceptingSubscriptionAsync += e =>
                     {
-                        if (e.UserName != "SystemUser")
-                        {
-                            e.ReasonCode = MqttConnectReasonCode.BadUserNameOrPassword;
-                        }
+                        Client? client = getClient(e.ClientId);
+                        string topic = e.TopicFilter.Topic.StartsWith("$") ? "$" : e.TopicFilter.Topic;
 
-                        if (e.Password != "12345678")
+                        if (client != null)
                         {
-                            e.ReasonCode = MqttConnectReasonCode.BadUserNameOrPassword;
+                            if (!client.IsAdmin)
+                            {
+                                switch (topic)
+                                {
+                                    case "#":
+                                    case "$":
+                                        e.ReasonString = "You are not authorized to subscribe to this topic.";
+                                        e.ProcessSubscription = false;
+                                        break;
+                                    default:
+                                        e.ProcessSubscription = true;
+                                        break;
+                                }
+                            }
                         }
-
                         return Task.CompletedTask;
+                    };
+                    mqttServer.InterceptingPublishAsync += e =>
+                    {
+                       if (e.ClientId == Settings.ServerName)
+                       {
+                           e.ProcessPublish = true;
+                           return Task.CompletedTask;
+                       }
+
+                       if (e.ApplicationMessage.Topic.StartsWith("$"))
+                       {
+                           e.ProcessPublish = false;
+                       }
+                       else
+                       {
+                           e.ProcessPublish = true;
+                       }
+                       return Task.CompletedTask;
+                    };
+                    mqttServer.ValidatingConnectionAsync += e =>
+                    {   
+                        if (getClient(e.ClientId) != null)
+                        {
+                            e.ReasonCode = MqttConnectReasonCode.ClientIdentifierNotValid;
+                            return Task.CompletedTask;
+                        } 
+                        if( e.UserName == Settings.AdminName)
+                        {
+                            if (e.Password == Settings.AdminPassword)
+                            {
+                                e.SessionItems.Add("IsAdmin", "true");
+                                e.ReasonString = "Admin connected";
+                                e.ReasonCode = MqttConnectReasonCode.Success;
+                                return Task.CompletedTask;
+                            }
+                        }
+                        if (e.UserName == Settings.UserName)
+                        {
+                            if (e.Password == Settings.UserPassword)
+                            {
+                                e.ReasonCode = MqttConnectReasonCode.Success;
+                                return Task.CompletedTask;
+                            }
+                        }
+
+                        e.ReasonCode = MqttConnectReasonCode.BadUserNameOrPassword;
+                        return Task.CompletedTask;
+             
                     };
 
                     mqttServer.ClientConnectedAsync += async e =>
                     {
-
-                        Console.WriteLine("Client connected: {0}", e.ClientId);
-                        List<string> clientFilter = new List<string>();
-                        clients.Add(e.ClientId, clientFilter);
+                        Console.WriteLine($"Client connected: {e.ClientId}" );
+                        Console.WriteLine(e.SessionItems);
+                        bool isAdmin = false;
+                        
+                        if (e.SessionItems["IsAdmin"] != null)
+                        {
+                            isAdmin = (e.SessionItems["IsAdmin"]?.ToString() == "true") ? true : false ;
+                        }
+                        clients.Add(new Client(e.ClientId, isAdmin));
+                        
                         messageCache.ClearMessages();
                         await Task.CompletedTask;
                     };
@@ -59,23 +128,23 @@ namespace System_Monitor_MQTT
                     mqttServer.ClientDisconnectedAsync += async e =>
                     {
                         Console.WriteLine("Client disconnected: {0}", e.ClientId);
-                        clients.Remove(e.ClientId);
+                        Client? client = getClient(e.ClientId);
+                        if (client != null)
+                        {
+                            clients.Remove(client);
+                        }
                         await Task.CompletedTask;
                     };
 
                     mqttServer.ClientSubscribedTopicAsync += async e =>
-                    {
-                       
-                        string id = e.ClientId;
-                        Console.WriteLine("  Client '{0}' subscribed to topic '{1}'", id, e.TopicFilter.Topic);
-                        string rootTpoic = e.TopicFilter.Topic.Split('/')[0];
-
-                        if (clients.ContainsKey(id))
-                        { 
-                            List<string> filters = clients[id];
-                            filters.Add(rootTpoic);                        
-                        }
+                    { 
                         
+                        Console.WriteLine("  Client '{0}' subscribed to topic '{1}'",e.ClientId, e.TopicFilter.Topic);
+                        Client? client = getClient(e.ClientId);
+                        if (client != null)
+                        {
+                            client.Subscriptions.Add(e.TopicFilter.Topic, e.TopicFilter.QualityOfServiceLevel);
+                        }                       
                         await Task.CompletedTask;
                     };
 
@@ -85,12 +154,7 @@ namespace System_Monitor_MQTT
                     {
                         if (clients.Count > 0)
                         {
-                            List<string> hwfilters = new List<string>();
-                            foreach (KeyValuePair<string, List<string>> client in clients)
-                            {
-                                hwfilters.AddRange(client.Value);
-                            }
-                            publishHWInfo(hardware, mqttServer, hwfilters);
+                            publishHWInfo(hardware, mqttServer, clients);
                         }
                         await Task.Delay(TimeSpan.FromMilliseconds(updateInterval), stoppingToken);
                     }
@@ -121,10 +185,38 @@ namespace System_Monitor_MQTT
             }
 
         }
-        
-        private async void publishHWInfo(IList<IHardware> hardware, MqttServer mqttServer, List<string> filters)
+        private Client? getClient(string id)
         {
-            await publishAsync(mqttServer, "SYSINFO","wtf");
+            foreach (Client client in clients)
+            {
+                if (client.ID == id)
+                {
+                    return client;
+                }
+            }
+            return null;
+        }
+        private async void publishHWInfo(IList<IHardware> hardware, MqttServer mqttServer, List<Client> clients)
+        {
+            List<string> filters = new List<string>();
+
+            clients.Sort((x, y) => x.ID.CompareTo(y.ID));
+            foreach (Client client in clients)
+            {
+                foreach (KeyValuePair<string, MqttQualityOfServiceLevel> subscription in client.Subscriptions)
+                {
+                    string rootTopic = subscription.Key.Split("/")[0];
+                    if (!filters.Contains(rootTopic))
+                    {
+                        filters.Add(rootTopic);
+                    }
+                }
+                if (client.IsAdmin)
+                {
+                   await publishUsers(mqttServer,clients);
+                }
+            }
+
             for (int i = 0; i < hardware.Count; i++)
             {
                 string topic = "";
@@ -222,6 +314,17 @@ namespace System_Monitor_MQTT
                 }
             }
         }
+
+        private async Task publishUsers(MqttServer mqttServer, List<Client> clients)
+        {
+            foreach (Client client in clients)
+            {
+                string topic = "$SYS/USERS/" + client.ID;
+                string payload = "Admin: " + client.IsAdmin;
+                await publishCachedAsync(mqttServer, topic, payload);
+            }
+        }
+
         private async Task publishCachedAsync(MqttServer server, string topic, string payload = "")
         {
            
@@ -248,8 +351,15 @@ namespace System_Monitor_MQTT
             await server.InjectApplicationMessage(
                new InjectedMqttApplicationMessage(message)
                {
-                    SenderClientId = "server"
-                });
+                   SenderClientId = Settings.ServerName
+               }) ;
+        }
+        private string IDSuffix()
+        {
+            var ticks = new DateTime(2016, 1, 1).Ticks;
+            var ans = DateTime.Now.Ticks - ticks;
+            return ans.ToString("x");
         }
     }
+    
 }

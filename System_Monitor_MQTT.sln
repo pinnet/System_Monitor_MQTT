@@ -7,6 +7,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "System_Monitor_MQTT", "Syst
 EndProject
 Project("{B7DD6F7E-DEF8-4E67-B5B7-07EF123DB6F0}") = "Broker_Setup", "Broker_Setup\Broker_Setup.wixproj", "{8934DC2F-6396-433D-A34B-BBA18164BC86}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LibreHardwareMonitorLib", "..\LibreHardwareMonitor\LibreHardwareMonitorLib\LibreHardwareMonitorLib.csproj", "{852A659B-B940-B973-B752-22CBA0E09F96}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -51,6 +53,22 @@ Global
 		{8934DC2F-6396-433D-A34B-BBA18164BC86}.Release|x64.Build.0 = Release|x64
 		{8934DC2F-6396-433D-A34B-BBA18164BC86}.Release|x86.ActiveCfg = Release|x86
 		{8934DC2F-6396-433D-A34B-BBA18164BC86}.Release|x86.Build.0 = Release|x86
+		{852A659B-B940-B973-B752-22CBA0E09F96}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{852A659B-B940-B973-B752-22CBA0E09F96}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{852A659B-B940-B973-B752-22CBA0E09F96}.Debug|ARM64.ActiveCfg = Debug|Any CPU
+		{852A659B-B940-B973-B752-22CBA0E09F96}.Debug|ARM64.Build.0 = Debug|Any CPU
+		{852A659B-B940-B973-B752-22CBA0E09F96}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{852A659B-B940-B973-B752-22CBA0E09F96}.Debug|x64.Build.0 = Debug|Any CPU
+		{852A659B-B940-B973-B752-22CBA0E09F96}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{852A659B-B940-B973-B752-22CBA0E09F96}.Debug|x86.Build.0 = Debug|Any CPU
+		{852A659B-B940-B973-B752-22CBA0E09F96}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{852A659B-B940-B973-B752-22CBA0E09F96}.Release|Any CPU.Build.0 = Release|Any CPU
+		{852A659B-B940-B973-B752-22CBA0E09F96}.Release|ARM64.ActiveCfg = Release|Any CPU
+		{852A659B-B940-B973-B752-22CBA0E09F96}.Release|ARM64.Build.0 = Release|Any CPU
+		{852A659B-B940-B973-B752-22CBA0E09F96}.Release|x64.ActiveCfg = Release|Any CPU
+		{852A659B-B940-B973-B752-22CBA0E09F96}.Release|x64.Build.0 = Release|Any CPU
+		{852A659B-B940-B973-B752-22CBA0E09F96}.Release|x86.ActiveCfg = Release|Any CPU
+		{852A659B-B940-B973-B752-22CBA0E09F96}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

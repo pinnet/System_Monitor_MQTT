@@ -1,7 +1,30 @@
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
   <Fragment>
     <StandardDirectory Id="ProgramFiles6432Folder">
-      <Directory Id="INSTALLFOLDER" Name="!(bind.Property.Manufacturer) !(bind.Property.ProductName)" />
+      <Directory Id="INSTALLFOLDER_FOLDERS" Name="!(bind.Property.Manufacturer) System Monitor MQTT Broker" />
     </StandardDirectory>
+  </Fragment>
+  <Fragment>
+    <DirectoryRef Id="INSTALLFOLDER_FOLDERS">
+      <Component Id="ServiceExecutable_Folders" Bitness="always64">
+        <File Id="App.WindowsService.exe"
+              Source="$(var.System_Monitor_MQTT.TargetDir)publish\win-x64\System_Monitor_MQTT.exe"
+              KeyPath="true" />
+        <RemoveFile Id="ALLFILES" Name="*.*" On="both" />
+        <ServiceInstall Id="ServiceInstaller_Folders"
+                        Type="ownProcess"
+                        Name="System_Monitor_MQTT"
+                        DisplayName="System Monitor MQTT Broker"
+                        Description="System Information MQTT Broker"
+                        Start="auto"
+                        ErrorControl="normal" />
+        <ServiceControl Id="StartService_Folders"
+                        Start="install"
+                        Stop="both"
+                        Remove="uninstall"
+                        Name="System_Monitor_MQTT"
+                        Wait="true" />
+      </Component>
+    </DirectoryRef>
   </Fragment>
 </Wix>
