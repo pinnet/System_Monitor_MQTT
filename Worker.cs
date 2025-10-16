@@ -354,12 +354,6 @@ namespace System_Monitor_MQTT
                    SenderClientId = Settings.ServerName
                }) ;
         }
-        private string IDSuffix()
-        {
-            var ticks = new DateTime(2016, 1, 1).Ticks;
-            var ans = DateTime.Now.Ticks - ticks;
-            return ans.ToString("x");
-        }
     }
     
 }
