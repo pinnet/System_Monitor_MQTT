@@ -1,0 +1,5 @@
+﻿<Project Sdk="WixToolset.Sdk/4.0.4">
+  <ItemGroup>
+    <ProjectReference Include="..\System_Monitor_MQTT.csproj" />
+  </ItemGroup>
+</Project>

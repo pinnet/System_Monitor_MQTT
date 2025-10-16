@@ -8,7 +8,7 @@ namespace System_Monitor_MQTT
 {
     internal class MQTTMessage
     {
-        public string Topic { get; set; }
-        public string Payload { get; set; }
+        public string? Topic { get; set; }
+        public string? Payload { get; set; }
     }
 }
